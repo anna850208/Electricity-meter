@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ 租屋電費即時計算器 ⚡</title>
+    <title>⚡ 租屋電費月結記帳本 ⚡</title>
     <style>
         :root { --primary: #20bf6b; --bg: #f1f2f6; --accent: #eb4d4b; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #2f3542; }
@@ -24,105 +24,192 @@
         .btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
         .btn-base { background: #54a0ff; }
 
-        .share-box { background: #eccc68; color: #2f3542; padding: 12px; border-radius: 10px; margin-top: 15px; font-size: 0.85rem; font-weight: bold; display: none; text-align: center; cursor: pointer;}
+        .history { margin-top: 25px; text-align: left; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: bold; }
+        .clear-btn { background: #666; color: white; font-size: 0.8rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; border: none;}
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 12px 5px; text-align: center; border-bottom: 1px solid #eee; }
+        th { background: #f1f2f6; color: #57606f; }
+
+        .tip-box { background: #ffeaa7; color: #d63031; padding: 12px; border-radius: 10px; margin-top: 15px; font-size: 0.85rem; font-weight: bold; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>⚡ 租屋電費即時看板</h2>
+    <h2>⚡ 租屋電費月結記帳本</h2>
     
-    <!-- 看板 -->
     <div class="dashboard">
-        <div>目前累計電費</div>
+        <div>本月目前累計電費</div>
         <div class="total-cost" id="dashCost">$ 0</div>
-        <div class="total-degrees" id="dashDegrees">請先在下方輸入度數</div>
-        <div class="base-info" id="dashBase">合約初始度數：未設定</div>
+        <div class="total-degrees" id="dashDegrees">請先設定本月初始度數</div>
+        <div class="base-info" id="dashBase">本月起點度數：未設定</div>
     </div>
     
-    <!-- 步驟一：設定初始度數 -->
     <div class="form-group" id="step1">
-        <label>第一步：輸入「簽約交屋」初始度數</label>
+        <label>第一步：輸入「本月起點」初始度數</label>
         <div class="input-box">
             <input type="number" id="baseMeter" step="0.1" placeholder="例如：1000">
-            <button class="btn btn-base" onclick="setBase()">鎖定起點</button>
+            <button class="btn btn-base" onclick="setBase()">鎖定本月起點</button>
         </div>
     </div>
 
-    <!-- 步驟二：隨時更新度數 -->
     <div class="form-group" id="step2" style="display:none;">
-        <label>第二步：隨時輸入「當前電表度數」</label>
+        <label>第二步：隨手紀錄「當前電表度數」</label>
         <div class="input-box">
             <input type="number" id="currentMeter" step="0.1" placeholder="目前看到的數字...">
-            <button class="btn" onclick="calculateCost()">計算電費</button>
+            <button class="btn" onclick="addRecord()">新增紀錄並換算</button>
         </div>
     </div>
 
-    <!-- 專屬連結提示 -->
-    <div class="share-box" id="shareBox" onclick="copyUrl()">
-        📌 點我複製「你的專屬電費貼紙網址」<br>把網址加到手機主畫面，以後就不用重新輸入起點囉！
+    <div class="history">
+        <div class="history-header">
+            <span>📋 本月隨手紀錄歷史</span>
+            <button class="clear-btn" onclick="startNewMonth()">開啟新月份(歸零)</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>紀錄時間</th>
+                    <th>當時度數</th>
+                    <th>累計電費</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </div>
+
+    <div class="tip-box" id="tipBox" style="display:none;">
+        💡 每次新增紀錄後，<b>網址會自動更新</b>！<br>請將當下網址「加入手機主畫面」或書籤，才能留住紀錄喔！
     </div>
 </div>
 
 <script>
     const RATE = 6; // 一度 6 元
+    let currentBase = null;
+    let historyData = [];
 
-    // 網頁載入時，檢查網址有沒有帶初始度數
     window.onload = function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const base = urlParams.get('base');
-
-        if (base) {
-            // 如果網址有 base 參數，直接進入第二步
-            document.getElementById('step1').style.display = 'none';
-            document.getElementById('step2').style.display = 'block';
-            document.getElementById('dashBase').innerText = `合約初始度數：${base} 度`;
-            document.getElementById('dashDegrees').innerText = `請在上方輸入當前度數`;
-            document.getElementById('shareBox').style.style.display = 'block';
-        }
+        parseUrlData();
     };
 
-    // 按下鎖定起點
+    // 從網址解析出本月設定跟歷史紀錄
+    function parseUrlData() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const base = urlParams.get('base');
+        const historyParam = urlParams.get('history');
+
+        if (base) {
+            currentBase = parseFloat(base);
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+            document.getElementById('dashBase').innerText = `本月起點度數：${currentBase} 度`;
+            document.getElementById('tipBox').style.display = 'block';
+
+            if (historyParam) {
+                try {
+                    // 解碼網址中的歷史紀錄
+                    historyData = JSON.parse(decodeURIComponent(historyParam));
+                } catch (e) {
+                    historyData = [];
+                }
+            }
+
+            if (historyData.length > 0) {
+                // 看板顯示最新那一筆的累計結果
+                const latest = historyData[0];
+                const diff = (latest.current - currentBase).toFixed(1);
+                const cost = Math.round(diff * RATE);
+                document.getElementById('dashCost').innerText = `$ ${cost}`;
+                document.getElementById('dashDegrees').innerText = `本月已用 ${diff} 度 (一度 6 元)`;
+            } else {
+                document.getElementById('dashCost').innerText = `$ 0`;
+                document.getElementById('dashDegrees').innerText = `尚未有紀錄，請在上方輸入當前度數`;
+            }
+        } else {
+            document.getElementById('step1').style.display = 'block';
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('dashBase').innerText = `本月起點度數：未設定`;
+            document.getElementById('tipBox').style.display = 'none';
+        }
+        displayHistory();
+    }
+
+    // 設定本月初始度數
     function setBase() {
         const baseVal = parseFloat(document.getElementById('baseMeter').value);
         if (isNaN(baseVal) || baseVal < 0) {
             alert('請輸入正確的數字喔！');
             return;
         }
-
-        // 把初始度數變成網址參數，重新整理網頁
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?base=' + baseVal;
-        window.location.href = newUrl;
+        // 更新網址
+        updateUrl(baseVal, []);
     }
 
-    // 按下計算電費
-    function calculateCost() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const baseVal = parseFloat(urlParams.get('base'));
+    // 新增一筆電表記錄
+    function addRecord() {
         const currentVal = parseFloat(document.getElementById('currentMeter').value);
-
         if (isNaN(currentVal)) {
             alert('請輸入當前電表度數！');
             return;
         }
-        if (currentVal < baseVal) {
-            alert(`當前度數不能小於初始度數 (${baseVal}度) 喔！`);
+        if (currentVal < currentBase) {
+            alert(`當前度數不能小於本月起點 (${currentBase}度) 喔！`);
             return;
         }
 
-        const diff = (currentVal - baseVal).toFixed(1);
-        const cost = Math.round(diff * RATE);
+        const now = new Date();
+        const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-        // 即時更新看板
-        document.getElementById('dashCost').innerText = `$ ${cost}`;
-        document.getElementById('dashDegrees').innerText = `本期已用 ${diff} 度 (一度 6 元)`;
-        document.getElementById('shareBox').style.display = 'block';
+        // 建立新紀錄
+        const newRecord = {
+            time: timeStr,
+            current: currentVal
+        };
+
+        // 塞入歷史紀錄最前面
+        historyData.unshift(newRecord);
+
+        // 更新網址並重新載入
+        updateUrl(currentBase, historyData);
     }
 
-    // 複製專屬網址
-    function copyUrl() {
-        navigator.clipboard.writeText(window.location.href);
-        alert('專屬網址已複製！可以傳給男友、或是加到手機主畫面當作專屬APP囉！');
+    // 將資料同步到網址並跳轉
+    function updateUrl(base, history) {
+        const historyStr = encodeURIComponent(JSON.stringify(history));
+        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?base=${base}&history=${historyStr}`;
+        window.location.href = newUrl;
+    }
+
+    // 渲染歷史表格
+    function displayHistory() {
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = '';
+
+        if (historyData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="color:#999; padding:20px;">本月尚無紀錄</td></tr>`;
+            return;
+        }
+
+        historyData.forEach(item => {
+            const diff = (item.current - currentBase).toFixed(1);
+            const cost = Math.round(diff * RATE);
+            const row = `<tr>
+                <td>${item.time}</td>
+                <td>${item.current} 度</td>
+                <td style="color:var(--accent); font-weight:bold;">$ ${cost}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    // 開啟新月份：清空網址所有參數
+    function startNewMonth() {
+        if (confirm('確定要結算本月，並重新設定新月份的初始度數嗎？（舊紀錄會清空喔！）')) {
+            const cleanUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+            window.location.href = cleanUrl;
+        }
     }
 </script>
 
