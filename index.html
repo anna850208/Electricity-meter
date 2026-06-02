@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ 芝心租屋電表記錄器 ⚡</title>
+    <style>
+        :root { --primary: #ff6b81; --bg: #f8f9fa; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: #2f3542; margin-top: 0; }
+        .rate-tag { text-align: center; background: #ffeaa7; color: #d63031; padding: 5px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #57606f; }
+        input { width: 100%; padding: 12px; border: 2px solid #ced4da; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        input:focus { border-color: var(--primary); outline: none; }
+        button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #ff4757; }
+        .history { margin-top: 30px; }
+        .history-title { font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .clear-btn { background: #eee; color: #666; font-size: 0.8rem; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+        th { background: #f1f2f6; color: #57606f; }
+        .cost { color: #d63031; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚡ 電表記錄器</h2>
+    <div class="rate-tag">目前計價：一度 6 元</div>
+    
+    <div class="form-group">
+        <label for="meterValue">今日電表度數 (度)：</label>
+        <input type="number" id="meterValue" step="0.1" placeholder="請輸入當前電表數字...">
+    </div>
+    <button onclick="recordElectricity()">確認儲存</button>
+
+    <div class="history">
+        <div class="history-title">
+            <span>📋 歷史記錄 (最新在最上)</span>
+            <span class="clear-btn" onclick="clearHistory()">清除全部</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>度數</th>
+                    <th>今日用電</th>
+                    <th>今日電費</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const ELECTRICITY_RATE = 6; // 一度 6 元
+
+    // 網頁載入時讀取紀錄
+    window.onload = function() {
+        displayHistory();
+    };
+
+    function recordElectricity() {
+        const inputEl = document.getElementById('meterValue');
+        const value = parseFloat(inputEl.value);
+
+        if (isNaN(value) || value <= 0) {
+            alert('請輸入正確的電表度數！');
+            return;
+        }
+
+        let history = JSON.parse(localStorage.getItem('elec_history')) || [];
+        const now = new Date();
+        const dateStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // 計算與上一期的差距
+        let diff = 0;
+        let cost = 0;
+        if (history.length > 0) {
+            // 歷史紀錄第一筆是最新的一筆
+            const lastRecord = history[0];
+            if (value >= lastRecord.value) {
+                diff = (value - lastRecord.value).toFixed(1);
+                cost = (diff * ELECTRICITY_RATE).toFixed(1);
+            } else {
+                alert('輸入的度數不能低於上一次的度數喔！');
+                return;
+            }
+        }
+
+        const newRecord = {
+            date: dateStr,
+            value: value,
+            diff: history.length === 0 ? '-' : diff + ' 度',
+            cost: history.length === 0 ? '-' : '$' + cost
+        };
+
+        // 新紀錄塞到最前面
+        history.unshift(newRecord);
+        localStorage.setItem('elec_history', JSON.stringify(history));
+        
+        inputEl.value = ''; // 清空輸入框
+        displayHistory();
+    }
+
+    function displayHistory() {
+        const history = JSON.parse(localStorage.getItem('elec_history')) || [];
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = '';
+
+        history.forEach(item => {
+            const row = `<tr>
+                <td>${item.date}</td>
+                <td>${item.value}</td>
+                <td>${item.diff}</td>
+                <td class="cost">${item.cost}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function clearHistory() {
+        if (confirm('確定要刪除所有歷史電表紀錄嗎？')) {
+            localStorage.removeItem('elec_history');
+            displayHistory();
+        }
+    }
+</script>
+
+</body>
+</html>
