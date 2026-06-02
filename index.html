@@ -3,52 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ 芝心租屋電表記錄器 ⚡</title>
+    <title>⚡ 芝心租屋電費即時看板 ⚡</title>
     <style>
-        :root { --primary: #ff6b81; --bg: #f8f9fa; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h2 { text-align: center; color: #2f3542; margin-top: 0; }
-        .rate-tag { text-align: center; background: #ffeaa7; color: #d63031; padding: 5px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; color: #57606f; }
-        input { width: 100%; padding: 12px; border: 2px solid #ced4da; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        :root { --primary: #20bf6b; --bg: #f1f2f6; --accent: #eb4d4b; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #2f3542; }
+        .container { max-width: 480px; margin: 0 auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h2 { text-align: center; margin: 0 0 15px 0; font-size: 1.5rem; }
+        
+        /* 即時看板花色 */
+        .dashboard { background: linear-gradient(135deg, #2f3542, #57606f); color: white; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .dashboard .total-cost { font-size: 2.2rem; font-weight: bold; color: #fed330; margin: 5px 0; }
+        .dashboard .total-degrees { font-size: 1rem; opacity: 0.9; }
+        .base-info { font-size: 0.8rem; opacity: 0.7; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.3); padding-top: 8px; }
+
+        .form-group { margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #57606f; font-size: 0.95rem; }
+        .input-box { display: flex; gap: 8px; }
+        input { flex: 1; padding: 12px; border: 2px solid #ced4da; border-radius: 8px; font-size: 1.1rem; }
         input:focus { border-color: var(--primary); outline: none; }
-        button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #ff4757; }
-        .history { margin-top: 30px; }
-        .history-title { font-weight: bold; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        .clear-btn { background: #eee; color: #666; font-size: 0.8rem; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-        th, td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        .btn-set { background: #54a0ff; }
+        
+        .history { margin-top: 25px; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: bold; }
+        .clear-btn { background: #eee; color: #666; font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 10px 5px; text-align: center; border-bottom: 1px solid #eee; }
         th { background: #f1f2f6; color: #57606f; }
-        .cost { color: #d63031; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>⚡ 電表記錄器</h2>
-    <div class="rate-tag">目前計價：一度 6 元</div>
+    <h2>⚡ 本期電費即時看板</h2>
     
-    <div class="form-group">
-        <label for="meterValue">今日電表度數 (度)：</label>
-        <input type="number" id="meterValue" step="0.1" placeholder="請輸入當前電表數字...">
+    <!-- 上方即時看板 -->
+    <div class="dashboard">
+        <div>目前累計電費</div>
+        <div class="total-cost" id="dashCost">$ 0</div>
+        <div class="total-degrees" id="dashDegrees">已用 0 度 (一度 6 元)</div>
+        <div class="base-info" id="dashBase">合約初始度數：未設定</div>
     </div>
-    <button onclick="recordElectricity()">確認儲存</button>
+    
+    <!-- 初始度數設定（第一次使用需要） -->
+    <div class="form-group" id="baseSetupSection">
+        <label>第一步：輸入「搬進去那天」的初始度數</label>
+        <div class="input-box">
+            <input type="number" id="baseMeter" step="0.1" placeholder="例如：1200.5">
+            <button class="btn btn-set" onclick="setBaseMeter()">設定起點</button>
+        </div>
+    </div>
 
+    <!-- 隨時更新度數 -->
+    <div class="form-group" id="updateSection" style="display:none;">
+        <label for="currentMeter">第二步：隨時輸入「當前電表度數」</label>
+        <div class="input-box">
+            <input type="number" id="currentMeter" step="0.1" placeholder="目前看到的數字...">
+            <button class="btn" onclick="updateMeter()">更新並計算</button>
+        </div>
+    </div>
+
+    <!-- 歷史紀錄 -->
     <div class="history">
-        <div class="history-title">
-            <span>📋 歷史記錄 (最新在最上)</span>
-            <span class="clear-btn" onclick="clearHistory()">清除全部</span>
+        <div class="history-header">
+            <span>📋 隨手紀錄歷史</span>
+            <span class="clear-btn" onclick="resetAll()">重置所有數據</span>
         </div>
         <table>
             <thead>
                 <tr>
-                    <th>日期</th>
-                    <th>度數</th>
-                    <th>今日用電</th>
-                    <th>今日電費</th>
+                    <th>紀錄時間</th>
+                    <th>當時度數</th>
+                    <th>當下累計電費</th>
                 </tr>
             </thead>
             <tbody id="historyBody"></tbody>
@@ -57,76 +85,117 @@
 </div>
 
 <script>
-    const ELECTRICITY_RATE = 6; // 一度 6 元
+    const RATE = 6; // 一度 6 元
 
-    // 網頁載入時讀取紀錄
     window.onload = function() {
-        displayHistory();
+        initPage();
     };
 
-    function recordElectricity() {
-        const inputEl = document.getElementById('meterValue');
-        const value = parseFloat(inputEl.value);
+    function initPage() {
+        const base = localStorage.getItem('elec_base');
+        const history = JSON.parse(localStorage.getItem('elec_history_v2')) || [];
 
-        if (isNaN(value) || value <= 0) {
-            alert('請輸入正確的電表度數！');
-            return;
-        }
-
-        let history = JSON.parse(localStorage.getItem('elec_history')) || [];
-        const now = new Date();
-        const dateStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-        // 計算與上一期的差距
-        let diff = 0;
-        let cost = 0;
-        if (history.length > 0) {
-            // 歷史紀錄第一筆是最新的一筆
-            const lastRecord = history[0];
-            if (value >= lastRecord.value) {
-                diff = (value - lastRecord.value).toFixed(1);
-                cost = (diff * ELECTRICITY_RATE).toFixed(1);
+        if (base) {
+            document.getElementById('baseSetupSection').style.display = 'none';
+            document.getElementById('updateSection').style.display = 'block';
+            document.getElementById('dashBase').innerText = `合約初始度數：${base} 度`;
+            
+            // 如果有歷史紀錄，看板顯示最新那一筆的累計狀況
+            if (history.length > 0) {
+                updateDashboard(history[0].totalDiff, history[0].totalCost);
             } else {
-                alert('輸入的度數不能低於上一次的度數喔！');
-                return;
+                updateDashboard(0, 0);
             }
+        } else {
+            document.getElementById('baseSetupSection').style.display = 'block';
+            document.getElementById('updateSection').style.display = 'none';
+            document.getElementById('dashBase').innerText = `合約初始度數：尚未設定`;
+            updateDashboard(0, 0);
         }
-
-        const newRecord = {
-            date: dateStr,
-            value: value,
-            diff: history.length === 0 ? '-' : diff + ' 度',
-            cost: history.length === 0 ? '-' : '$' + cost
-        };
-
-        // 新紀錄塞到最前面
-        history.unshift(newRecord);
-        localStorage.setItem('elec_history', JSON.stringify(history));
-        
-        inputEl.value = ''; // 清空輸入框
         displayHistory();
     }
 
+    // 設定搬家初始度數
+    function setBaseMeter() {
+        const baseValue = parseFloat(document.getElementById('baseMeter').value);
+        if (isNaN(baseValue) || baseValue < 0) {
+            alert('請輸入正確的初始度數！');
+            return;
+        }
+        localStorage.setItem('elec_base', baseValue);
+        initPage();
+    </div>
+
+    // 隨時更新當前度數
+    function updateMeter() {
+        const currentVal = parseFloat(document.getElementById('currentMeter').value);
+        const baseVal = parseFloat(localStorage.getItem('elec_base'));
+
+        if (isNaN(currentVal)) {
+            alert('請輸入當前電表度數！');
+            return;
+        }
+        if (currentVal < baseVal) {
+            alert(`目前度數不能低於初始度數 (${baseVal} 度) 喔！`);
+            return;
+        }
+
+        // 計算從住進來到現在「總共」用幾度、多少錢
+        const totalDiff = (currentVal - baseVal).toFixed(1);
+        const totalCost = Math.round(totalDiff * RATE);
+
+        // 紀錄時間
+        const now = new Date();
+        const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        let history = JSON.parse(localStorage.getItem('elec_history_v2')) || [];
+        
+        const newRecord = {
+            time: timeStr,
+            current: currentVal,
+            totalDiff: totalDiff,
+            totalCost: totalCost
+        };
+
+        history.unshift(newRecord); // 最新紀錄排最前面
+        localStorage.setItem('elec_history_v2', JSON.stringify(history));
+
+        document.getElementById('currentMeter').value = ''; // 清空輸入框
+        updateDashboard(totalDiff, totalCost);
+        displayHistory();
+    </div>
+
+    function updateDashboard(diff, cost) {
+        document.getElementById('dashCost').innerText = `$ ${cost}`;
+        document.getElementById('dashDegrees').innerText = `本期已用 ${diff} 度 (一度 6 元)`;
+    }
+
     function displayHistory() {
-        const history = JSON.parse(localStorage.getItem('elec_history')) || [];
+        const history = JSON.parse(localStorage.getItem('elec_history_v2')) || [];
         const tbody = document.getElementById('historyBody');
         tbody.innerHTML = '';
 
+        if (history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="color:#999; padding:20px;">尚無紀錄，輸入上方度數試試看吧！</td></tr>`;
+            return;
+        }
+
         history.forEach(item => {
             const row = `<tr>
-                <td>${item.date}</td>
-                <td>${item.value}</td>
-                <td>${item.diff}</td>
-                <td class="cost">${item.cost}</td>
+                <td>${item.time}</td>
+                <td>${item.current} 度</td>
+                <td style="color:#eb4d4b; font-weight:bold;">$ ${item.totalCost}</td>
             </tr>`;
             tbody.innerHTML += row;
         });
     }
 
-    function clearHistory() {
-        if (confirm('確定要刪除所有歷史電表紀錄嗎？')) {
-            localStorage.removeItem('elec_history');
-            displayHistory();
+    // 重置所有數據
+    function resetAll() {
+        if (confirm('確定要清空所有紀錄並重新設定初始度數嗎？（通常在換新帳單週期時使用）')) {
+            localStorage.removeItem('elec_base');
+            localStorage.removeItem('elec_history_v2');
+            initPage();
         }
     }
 </script>
