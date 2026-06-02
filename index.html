@@ -24,6 +24,8 @@
         .btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
         .btn-base { background: #54a0ff; }
 
+        .btn-share { width: 100%; background: #ff9f43; color: white; border: none; padding: 12px; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+
         .history { margin-top: 25px; text-align: left; }
         .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: bold; }
         .clear-btn { background: #666; color: white; font-size: 0.8rem; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; border: none;}
@@ -31,8 +33,6 @@
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         th, td { padding: 12px 5px; text-align: center; border-bottom: 1px solid #eee; }
         th { background: #f1f2f6; color: #57606f; }
-
-        .tip-box { background: #ffeaa7; color: #d63031; padding: 12px; border-radius: 10px; margin-top: 15px; font-size: 0.85rem; font-weight: bold; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -61,6 +61,7 @@
             <input type="number" id="currentMeter" step="0.1" placeholder="目前看到的數字...">
             <button class="btn" onclick="addRecord()">新增紀錄並換算</button>
         </div>
+        <button class="btn-share" id="shareBtn" onclick="copyUrl()">📌 點我複製專屬電費貼紙網址</button>
     </div>
 
     <div class="history">
@@ -79,10 +80,6 @@
             <tbody id="historyBody"></tbody>
         </table>
     </div>
-
-    <div class="tip-box" id="tipBox" style="display:none;">
-        💡 每次新增紀錄後，<b>網址會自動更新</b>！<br>請將當下網址「加入手機主畫面」或書籤，才能留住紀錄喔！
-    </div>
 </div>
 
 <script>
@@ -94,7 +91,6 @@
         parseUrlData();
     };
 
-    // 從網址解析出本月設定跟歷史紀錄
     function parseUrlData() {
         const urlParams = new URLSearchParams(window.location.search);
         const base = urlParams.get('base');
@@ -105,11 +101,9 @@
             document.getElementById('step1').style.display = 'none';
             document.getElementById('step2').style.display = 'block';
             document.getElementById('dashBase').innerText = `本月起點度數：${currentBase} 度`;
-            document.getElementById('tipBox').style.display = 'block';
 
             if (historyParam) {
                 try {
-                    // 解碼網址中的歷史紀錄
                     historyData = JSON.parse(decodeURIComponent(historyParam));
                 } catch (e) {
                     historyData = [];
@@ -117,7 +111,6 @@
             }
 
             if (historyData.length > 0) {
-                // 看板顯示最新那一筆的累計結果
                 const latest = historyData[0];
                 const diff = (latest.current - currentBase).toFixed(1);
                 const cost = Math.round(diff * RATE);
@@ -131,23 +124,19 @@
             document.getElementById('step1').style.display = 'block';
             document.getElementById('step2').style.display = 'none';
             document.getElementById('dashBase').innerText = `本月起點度數：未設定`;
-            document.getElementById('tipBox').style.display = 'none';
         }
         displayHistory();
     }
 
-    // 設定本月初始度數
     function setBase() {
         const baseVal = parseFloat(document.getElementById('baseMeter').value);
         if (isNaN(baseVal) || baseVal < 0) {
             alert('請輸入正確的數字喔！');
             return;
         }
-        // 更新網址
         updateUrl(baseVal, []);
     }
 
-    // 新增一筆電表記錄
     function addRecord() {
         const currentVal = parseFloat(document.getElementById('currentMeter').value);
         if (isNaN(currentVal)) {
@@ -162,27 +151,21 @@
         const now = new Date();
         const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-        // 建立新紀錄
         const newRecord = {
             time: timeStr,
             current: currentVal
         };
 
-        // 塞入歷史紀錄最前面
         historyData.unshift(newRecord);
-
-        // 更新網址並重新載入
         updateUrl(currentBase, historyData);
     }
 
-    // 將資料同步到網址並跳轉
     function updateUrl(base, history) {
         const historyStr = encodeURIComponent(JSON.stringify(history));
         const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?base=${base}&history=${historyStr}`;
         window.location.href = newUrl;
     }
 
-    // 渲染歷史表格
     function displayHistory() {
         const tbody = document.getElementById('historyBody');
         tbody.innerHTML = '';
@@ -204,7 +187,19 @@
         });
     }
 
-    // 開啟新月份：清空網址所有參數
+    function copyUrl() {
+        // 建立一個隱藏的輸入框來複製網址，確保在所有手機上都相容
+        const dummy = document.createElement('input');
+        document.body.appendChild(dummy);
+        dummy.value = window.location.href;
+        dummy.select();
+        dummy.setSelectionRange(0, 99999); /* 針對手機 */
+        document.execCommand('copy');
+        document.body.removeChild(dummy);
+        
+        alert('📋 專屬網址已複製！\n請把這個連結貼到 LINE 聊天室或記事本，下次點開就是最新的紀錄囉！');
+    }
+
     function startNewMonth() {
         if (confirm('確定要結算本月，並重新設定新月份的初始度數嗎？（舊紀錄會清空喔！）')) {
             const cleanUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
